@@ -78,6 +78,8 @@ df_rating.info()
 
 df_rating = df_rating[df_rating.user_id <= 10000]
 
+df_rating.info()
+
 rating_counts = df_rating['anime_id'].value_counts().head(5)
 
 top5_rated_anime = pd.DataFrame({
@@ -108,7 +110,7 @@ df_rating['rating'] = df_rating['rating'].replace(-1, pd.NA)
 """Insight :
 - `df_rating['rating'].unique()` digunakan untuk mengecek semua nilai unik yang terdapat dalam kolom rating. Ini berguna untuk menemukan adanya nilai tidak valid atau anomali, seperti -1 yang biasanya menandakan bahwa user belum memberi rating sebenarnya (misalnya hanya menonton tapi tidak menilai).
 
-- `df_rating['rating'] = df_rating['rating'].replace(-1, pd.NA)` mengganti semua nilai -1 dengan pd.NA (missing value dalam Pandas). Ini penting agar model rekomendasi tidak menganggap -1 sebagai rating numerik yang valid. Nilai ini nantinya bisa diabaikan saat melakukan perhitungan seperti similarity atau rekomendasi.
+- `df_rating['rating'] = df_rating['rating'].replace(-1, pd.NA)` mengganti semua nilai -1 dengan pd.NA (missing value dalam Pandas). Ini penting agar model rekomendasi tidak menganggap -1 sebagai rating numerik yang valid. Nilai -1 berarti pengguna menonton tetapi tidak menilai anime tersebut.
 
 ## Mengatasi Missing Value
 
@@ -121,11 +123,9 @@ df_anime.dropna(inplace=True)
 
 df_rating.isnull().sum()
 
-df_rating.dropna(inplace=True)
-
 """Insight :
 - Pada dataset anime, terdapat nilai null pada kolom genre, type, dan rating. Karena tidak jumlah null masih tergolong sedikkit, jadi diputuskan untuk menghapus nilai null tersebut.
-- Pada dataset rating, terdapat banyak sekali nilai null pada kolom rating. Hal ini disebabkan pada kode sebelumnya bahwa mengganti nilai anomali (-1) menjadi NaN. Karena -1 adalah pengguna yang menonton tetapi tidak menilai, maka akan dihapus. Jika dijadikan 0, maka akan merusak anime tersebut karena jika 0 akan terdeteksi film tersebut jelek.
+- Pada dataset rating, terdapat banyak sekali nilai null pada kolom rating. Hal ini disebabkan pada kode sebelumnya bahwa mengganti nilai anomali (-1) menjadi NaN. Karena -1 adalah pengguna yang menonton tetapi tidak menilai, maka akan dibiarkan saja. Hal ini dibiarkan untuk nanti diproses pada modeling.
 
 ## Mengatasi Duplicated Value
 
@@ -168,18 +168,18 @@ Rekomendasi anime berdasarkan genre yang mirip
 """
 
 def recommend(anime_title):
-    if anime_title not in df_anime['name'].values:
-        print("Anime tidak ditemukan!")
-        return
+  if anime_title not in df_anime['name'].values:
+      print("Anime tidak ditemukan!")
+      return
 
-    index = df_anime[df_anime['name'] == anime_title].index[0]
-    distances = sorted(list(enumerate(anime_similarity[index])), reverse=True, key=lambda x: x[1])
+  index = df_anime[df_anime['name'] == anime_title].index[0]
+  distances = sorted(list(enumerate(anime_similarity[index])), reverse=True, key=lambda x: x[1])
 
-    print(f"Rekomendasi anime mirip dengan '{anime_title}':")
-    for i in distances[1:6]:
-        title = df_anime.iloc[i[0]]['name']
-        genre = df_anime.iloc[i[0]]['genre']
-        print(f"- {title} — Genre: {genre}")
+  print(f"Rekomendasi anime mirip dengan '{anime_title}':")
+  for i in distances[1:6]:
+      title = df_anime.iloc[i[0]]['name']
+      genre = df_anime.iloc[i[0]]['genre']
+      print(f"- {title} — Genre: {genre}")
 
 recommend('Kokoro ga Sakebitagatterunda.')
 
@@ -194,7 +194,9 @@ Rekomendasi anime berdasarkan kesamaan antar pengguna
 
 user_item_matrix = df_rating.pivot(index='user_id', columns='anime_id', values='rating')
 
-user_similarity = cosine_similarity(user_item_matrix.fillna(0))
+user_item_matrix_filled = user_item_matrix.fillna(0)
+
+user_similarity = cosine_similarity(user_item_matrix_filled)
 
 def user_based_recommendations(user_id, user_item_matrix, user_similarity, n=5):
     user_scores = user_similarity[user_id - 1]
@@ -278,4 +280,67 @@ for anime_id in item_recommendations:
 
 """Insight : Kode ini melakukan uji coba rekomendasi anime untuk pengguna tertentu (user\_id = 15) menggunakan dua metode collaborative filtering: user-based dan item-based. Hasilnya menampilkan daftar anime yang direkomendasikan berdasarkan kemiripan antar pengguna dan kemiripan antar anime. Dengan cara ini, kita dapat membandingkan efektivitas kedua pendekatan dalam memberikan rekomendasi yang relevan bagi pengguna.
 
+# Visualisasi
+
+Visualisasi metrik Content Based Filtering dan Collaborative Filtering
 """
+
+# Ambil subset untuk visualisasi (10 anime pertama)
+genre_df = pd.DataFrame(genre_matrix[:10], columns=vectorizer.get_feature_names_out())
+anime_names = df_anime['name'][:10].values
+
+plt.figure(figsize=(12, 6))
+sns.heatmap(genre_df, cmap="YlGnBu", xticklabels=True, yticklabels=anime_names)
+plt.title("Genre Presence Matrix (Top 10 Anime)")
+plt.xlabel("Genres")
+plt.ylabel("Anime Titles")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
+# Ambil subset 10 user pertama untuk visualisasi
+subset_user_sim = user_similarity[:10, :10]
+user_labels = user_item_matrix.index[:10]
+
+plt.figure(figsize=(10, 8))
+sns.heatmap(subset_user_sim, annot=True, cmap="YlOrRd", xticklabels=user_labels, yticklabels=user_labels)
+plt.title("User Similarity Heatmap (Top 10 Users)")
+plt.xlabel("User ID")
+plt.ylabel("User ID")
+plt.tight_layout()
+plt.show()
+
+# Ambil subset 10 anime pertama untuk visualisasi
+subset_item_sim = item_similarity[:10, :10]
+
+# Buat label anime dari 10 anime pertama
+anime_labels = [
+    df_anime[df_anime['anime_id'] == idx_to_anime_id[i]]['name'].values[0]
+    if idx_to_anime_id[i] in df_anime['anime_id'].values else f"ID {idx_to_anime_id[i]}"
+    for i in range(10)
+]
+
+# Plot heatmap dengan angka (annot=True)
+plt.figure(figsize=(12, 10))
+sns.heatmap(subset_item_sim, annot=True, fmt=".2f", cmap="coolwarm",
+            xticklabels=anime_labels, yticklabels=anime_labels)
+plt.title("Anime (Item) Similarity Heatmap (Top 10 Anime)")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+
+"""Insight :
+- Visualisasi ini menunjukkan representasi genre dari 10 anime teratas dalam bentuk one-hot encoding (1 = memiliki genre tersebut, 0 = tidak). Dari heatmap tersebut terlihat bahwa:
+  - Cowboy Bebop, Trigun, dan Cowboy Bebop: Tengoku no Tobira memiliki genre yang sama atau mirip seperti Action dan Sci-Fi. Hal ini sejalan dengan hasil heatmap similarity sebelumnya, yang menunjukkan bahwa mereka memang mirip secara item-based collaborative filtering.
+  - Genre Sports muncul di anime seperti Hungry Heart: Wild Striker, Eyeshield 21, dan Initial D Fourth Stage, yang memperjelas alasan mereka saling memiliki kemiripan kecil terhadap anime bergenre action seperti Cowboy Bebop.
+  - Perbedaan genre yang signifikan menjelaskan mengapa beberapa anime tidak menunjukkan kemiripan tinggi satu sama lain dalam heatmap item similarity.
+
+- Pada kode kedua sebagian besar pengguna memiliki kemiripan yang rendah satu sama lain (nilai mendekati 0), menunjukkan bahwa preferensi mereka terhadap anime cukup beragam. Namun, terdapat beberapa pasangan pengguna dengan kemiripan yang relatif lebih tinggi (misalnya, user 1 dan user 10 = 0.28, user 3 dan user 5 = 0.2, user 5 dan user 7 = 0.24). Ini menunjukkan potensi untuk memberikan rekomendasi berbasis preferensi pengguna lain dengan tingkat kesamaan tertentu.
+
+- Beberapa anime menunjukkan tingkat kemiripan tinggi berdasarkan pola rating pengguna, seperti:
+  - Cowboy Bebop dan Cowboy Bebop: Tengoku no Tobira (similarity 0.62)
+  - Cowboy Bebop dan Trigun (0.53)
+  
+  Ini menunjukkan bahwa pengguna yang menyukai satu anime kemungkinan besar juga akan menyukai anime yang memiliki nilai kemiripan tinggi dengannya. Heatmap ini membuktikan bahwa pendekatan Collaborative Filtering berbasis item berhasil mengidentifikasi item-item (anime) yang mirip berdasarkan preferensi kolektif pengguna, sehingga mendukung pencapaian goal kedua.
+"""
+

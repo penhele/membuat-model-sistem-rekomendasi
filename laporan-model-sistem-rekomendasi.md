@@ -1,4 +1,4 @@
-# Sistem Rekomendasi Anime - Stephen Helenus Ruswanto Kaawoan
+# Laporan Sistem Rekomendasi Anime - Stephen Helenus Ruswanto Kaawoan
 
 ## Project Overview
 
@@ -11,10 +11,6 @@ Penelitian terkait menunjukkan bahwa sistem rekomendasi dapat secara signifikan 
 Dengan dasar tersebut, proyek ini bertujuan untuk mengembangkan sistem model rekomendasi anime menggunakan teknik machine learning yang dapat memberikan rekomendasi anime yang sesuai dengan preferensi pengguna, sehingga membantu mereka menemukan anime yang diminati secara lebih efektif.
 
 ## Business Understanding
-
-Pada bagian ini, Anda perlu menjelaskan proses klarifikasi masalah.
-
-Bagian laporan ini mencakup:
 
 ### Problem Statements
 
@@ -254,15 +250,77 @@ Berikut ini adalah beberapa tahap yang dilakukan sebagai berikut:
 
 ## Evaluation
 
-Pada bagian ini Anda perlu menyebutkan metrik evaluasi yang digunakan. Kemudian, jelaskan hasil proyek berdasarkan metrik evaluasi tersebut.
+### Content Based Filtering
 
-Ingatlah, metrik evaluasi yang digunakan harus sesuai dengan konteks data, problem statement, dan solusi yang diinginkan.
+![visualisasi-metrik](./assets/visualisasi-metrik-content-based-filtering.png)
 
-**Rubrik/Kriteria Tambahan (Opsional)**: 
-- Menjelaskan formula metrik dan bagaimana metrik tersebut bekerja.
+Visualisasi ini menunjukkan representasi genre dari 10 anime teratas dalam bentuk one-hot encoding (1 = memiliki genre tersebut, 0 = tidak). Dari heatmap tersebut terlihat bahwa:
+  - Cowboy Bebop, Trigun, dan Cowboy Bebop: Tengoku no Tobira memiliki genre yang sama atau mirip seperti Action dan Sci-Fi. Hal ini sejalan dengan hasil heatmap similarity sebelumnya, yang menunjukkan bahwa mereka memang mirip secara item-based collaborative filtering.
+  - Genre Sports muncul di anime seperti Hungry Heart: Wild Striker, Eyeshield 21, dan Initial D Fourth Stage, yang memperjelas alasan mereka saling memiliki kemiripan kecil terhadap anime bergenre action seperti Cowboy Bebop.
+  - Perbedaan genre yang signifikan menjelaskan mengapa beberapa anime tidak menunjukkan kemiripan tinggi satu sama lain dalam heatmap item similarity.
 
-**---Ini adalah bagian akhir laporan---**
+![visualisasi-metrik](./assets/visualisasi-metrik-collaborative-filtering-1.png)
 
-_Catatan:_
-- _Anda dapat menambahkan gambar, kode, atau tabel ke dalam laporan jika diperlukan. Temukan caranya pada contoh dokumen markdown di situs editor [Dillinger](https://dillinger.io/), [Github Guides: Mastering markdown](https://guides.github.com/features/mastering-markdown/), atau sumber lain di internet. Semangat!_
-- Jika terdapat penjelasan yang harus menyertakan code snippet, tuliskan dengan sewajarnya. Tidak perlu menuliskan keseluruhan kode project, cukup bagian yang ingin dijelaskan saja.
+Pada kode kedua sebagian besar pengguna memiliki kemiripan yang rendah satu sama lain (nilai mendekati 0), menunjukkan bahwa preferensi mereka terhadap anime cukup beragam. Namun, terdapat beberapa pasangan pengguna dengan kemiripan yang relatif lebih tinggi (misalnya, user 1 dan user 10 = 0.28, user 3 dan user 5 = 0.2, user 5 dan user 7 = 0.24). Ini menunjukkan potensi untuk memberikan rekomendasi berbasis preferensi pengguna lain dengan tingkat kesamaan tertentu.
+
+![visualisasi-metrik](./assets/visualisasi-metrik-collaborative-filtering-2.png)
+
+Beberapa anime menunjukkan tingkat kemiripan tinggi berdasarkan pola rating pengguna, seperti:
+  - Cowboy Bebop dan Cowboy Bebop: Tengoku no Tobira (similarity 0.62)
+  - Cowboy Bebop dan Trigun (0.53)
+  
+Ini menunjukkan bahwa pengguna yang menyukai satu anime kemungkinan besar juga akan menyukai anime yang memiliki nilai kemiripan tinggi dengannya. Heatmap ini membuktikan bahwa pendekatan Collaborative Filtering berbasis item berhasil mengidentifikasi item-item (anime) yang mirip berdasarkan preferensi kolektif pengguna, sehingga mendukung pencapaian goal kedua.
+
+---
+
+## Formula Metrik: Cosine Similarity
+
+Pada dasarnya, **Cosine Similarity** adalah ukuran kemiripan antara dua vektor non-nol dalam ruang produk skalar. Ini mengukur kosinus dari sudut antara dua vektor. Semakin kecil sudutnya, semakin tinggi nilai kosinusnya, dan semakin tinggi pula kemiripan antara kedua vektor tersebut.
+
+### Formula Matematika
+
+Untuk dua vektor $A$ dan $B$, rumus Cosine Similarity didefinisikan sebagai:
+
+$$\text{similarity} = \cos(\theta) = \frac{A \cdot B}{||A|| \cdot ||B||} = \frac{\sum_{i=1}^{n} A_i B_i}{\sqrt{\sum_{i=1}^{n} A_i^2} \sqrt{\sum_{i=1}^{n} B_i^2}}$$
+
+Di mana:
+* $A$ dan $B$ adalah vektor yang sedang dibandingkan (misalnya, vektor genre dari dua anime, atau vektor rating dari dua pengguna).
+* $A_i$ dan $B_i$ adalah komponen ke-$i$ dari vektor $A$ dan $B$.
+* $A \cdot B$ adalah **dot product** (hasil kali titik) dari vektor $A$ dan $B$. Ini dihitung dengan mengalikan setiap komponen yang sesuai dari kedua vektor dan menjumlahkan hasilnya.
+* $||A||$ dan $||B||$ adalah **magnitudo (panjang)** dari vektor $A$ dan $B$. Ini dihitung sebagai akar kuadrat dari jumlah kuadrat setiap komponen vektor.
+
+### Cara Kerja
+
+Metrik ini digunakan untuk mengukur kemiripan dalam dua skenario utama yang divisualisasikan:
+
+---
+
+### 1. Item-Based Content-Based Learning dan Collaborative Filtering (Visualisasi Matriks Genre dan Item Similarity)
+
+* **Dalam `Genre Presence Matrix` (Content-Based Filtering):**
+    * Setiap baris representasi genre (setelah *one-hot encoding*) dari sebuah anime dianggap sebagai sebuah vektor.
+    * Misalnya, `Cowboy Bebop` mungkin memiliki vektor `[1, 1, 0, 0, ...]` untuk Action, Sci-Fi, Sports, dll.
+    * Ketika secara implisit (melalui visualisasi dan penjelasan) mengatakan bahwa `Cowboy Bebop` dan `Trigun` mirip berdasarkan genre Action dan Sci-Fi, ini karena vektor genre mereka akan memiliki banyak angka `1` di posisi genre yang sama. Cosine Similarity akan menghasilkan nilai tinggi karena dot product mereka akan besar (banyak genre yang sama) dan panjang vektor mereka juga relevan.
+    * **Formula Cosine Similarity** digunakan di balik layar (atau bisa digunakan secara eksplisit) untuk menghitung seberapa mirip dua anime berdasarkan profil genre mereka. Semakin banyak genre yang sama (nilai 1 di posisi yang sama dalam vektor genre), semakin tinggi kemiripan kosinusnya.
+
+* **Dalam `Anime (Item) Similarity Heatmap` (Collaborative Filtering):**
+    * Di sini, setiap kolom (setelah transpose, atau perhatikan bahwa kita membandingkan item) dari `user_item_matrix` (setelah `fillna(0)`) dianggap sebagai vektor. Vektor ini merepresentasikan **profil rating** untuk setiap anime di antara semua pengguna.
+    * Misalnya, vektor Anime X adalah `[rating_user1, rating_user2, rating_user3, ...]`.
+    * Ketika menghitung `item_similarity` (yang hasilkan dari `user_item_matrix` yang di-transpose atau dari metode langsung seperti `cosine_similarity(user_item_matrix.T)`), dibandingkan dua anime (vektor).
+    * **Cosine Similarity** akan memberikan nilai tinggi jika dua anime cenderung dinilai tinggi oleh pengguna yang sama, atau dinilai rendah oleh pengguna yang sama, dan memiliki pola rating yang serupa di antara pengguna lain. Contoh: `Cowboy Bebop` dan `Cowboy Bebop: Tengoku no Tobira` memiliki nilai 0.62 karena pengguna yang memberikan rating tinggi pada satu anime cenderung memberikan rating tinggi pada anime lainnya, atau mereka cenderung tidak memberikan rating pada keduanya (karena `0` diinterpretasikan sebagai "tidak ada rating").
+
+---
+
+### 2. User-Based Collaborative Filtering (Visualisasi User Similarity Heatmap)
+
+* Di sini, setiap baris dari `user_item_matrix` (setelah `fillna(0)`) dianggap sebagai sebuah vektor. Vektor ini merepresentasikan **profil rating** yang diberikan oleh setiap pengguna untuk semua anime.
+* Misalnya, vektor User 1 adalah `[rating_anime1, rating_anime2, rating_anime3, ...]`.
+* Ketika menghitung `user_similarity`, dibandingkan dua pengguna (vektor).
+* **Cosine Similarity** akan memberikan nilai tinggi jika dua pengguna cenderung memberikan rating yang sama pada anime yang sama. Misalnya, jika User A dan User B sama-sama memberikan rating 5 untuk Anime X dan Anime Y, serta tidak me-rating Anime Z, maka vektor rating mereka akan sangat mirip, menghasilkan Cosine Similarity yang tinggi.
+* Komentar bahwa "sebagian besar pengguna memiliki kemiripan yang rendah satu sama lain (nilai mendekati 0)" adalah umum dan sejalan dengan sifat `user_item_matrix` yang sangat jarang (sparsity) yang kita bahas sebelumnya. Ini berarti profil rating mereka (vektor) kebanyakan terdiri dari `0`s dan hanya sedikit interaksi yang tumpang tindih. Namun, ketika ada tumpang tindih dan pola ratingnya mirip, nilai kesamaan akan meningkat.
+
+---
+
+### Ringkasan
+
+Singkatnya, **Cosine Similarity** adalah metrik yang sangat baik untuk mengukur kemiripan dalam konteks sistem rekomendasi karena ia hanya fokus pada **arah** vektor (pola) dan tidak terlalu terpengaruh oleh **magnitudo** (misalnya, perbedaan skala rating antar pengguna). Ini menjadikannya pilihan populer untuk membandingkan profil genre, profil rating pengguna, atau profil rating item.
