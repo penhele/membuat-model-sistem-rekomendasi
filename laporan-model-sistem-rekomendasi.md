@@ -37,10 +37,30 @@ Dataset yang digunakan dalam proyek ini berisi informasi preferensi pengguna ter
 
 Berikut tautan dataset yang digunakan. [Anime Recomendations Datase](https://www.kaggle.com/datasets/CooperUnion/anime-recommendations-database)
 
+--- 
+
+**anime.csv**
+
+![anime-missing-null](./assets/anime-missing-null.png)
+
+Pada gambar di atas, diketahui kondisi awal dari dataset anime ada terdapat null pada kolom `genre`, `type`, dan `rating`. Hal ini nanti akan dilakukan pembersihan pada Data Preparation.
+
+**rating.csv**
+
+![rating-missing-null](./assets/rating-missing-null-1.png)
+
+Kemudian pada gambar di atas, diketahui kondisi awal dari dataset rating tidak terlihat null-nya. Hal ini belum diketahui pasti, bisa jadi karena banyaknya data pada datasetnya sangat banyal. Lalu untuk mengurangi data agar tidak terlalu banyak, pada kode selanjutnya `df_rating = df_rating[df_rating.user_id <= 10000]` untuk mengurangi. Kode tersebut akan dijelaskan pada Data Preparation.
+
+![rating-missing-null](./assets/rating-missing-null-2.png)
+
+Setelah dilakukan pengambilan `user_id` di bawah 10000, baru diketahui bahwa tidak ada nilai null pada dataset rating.
+
+Pada **dataset anime terdapat 12293 baris dan 7 kolom**, sedangkan **dataset rating terdapat 7813736 baris (sebelum dikurangi) dan 3 kolom**.
+
 ---
 
 Variabel-variabel pada dataset Anime dan Rating adalah sebagai berikut:
-**Anime.csv**
+**anime.csv**
 
 * **anime\_id** : ID unik yang mengidentifikasi setiap anime
 * **name** : Nama lengkap anime
@@ -50,7 +70,7 @@ Variabel-variabel pada dataset Anime dan Rating adalah sebagai berikut:
 * **rating** : Rating rata-rata anime dari skala 1 hingga 10
 * **members** : Jumlah anggota komunitas yang mengikuti anime tersebut
 
-**Rating.csv**
+**rating.csv**
 
 * **user\_id** : ID anonim pengguna yang memberikan rating
 * **anime\_id** : ID anime yang diberi rating oleh pengguna
@@ -72,12 +92,23 @@ Kemudian visualisasi di atas menampilkan jumlah rating pada setiap `Anime`. Hany
 
 Berikut ini adalah beberapa tahap yang dilakukan sebagai berikut:
 
-- **Load Data** : Dataset yang digunakan adalah 2, yaitu Anime dan Rating. Dataset Anime berisi anime_id, name, genre, type, episodes, rating, dan members. Sedangkan dataset Rating berisi user_id, anime_id, dan rating.
+- **Load Data** 
+    Dataset yang digunakan adalah 2, yaitu Anime dan Rating. Dataset Anime berisi anime_id, name, genre, type, episodes, rating, dan members. Sedangkan dataset Rating berisi user_id, anime_id, dan rating.
 
     ```python
     df_anime = pd.read_csv('anime.csv')
     df_rating = pd.read_csv('rating.csv')
     ```
+
+- **Filtering Dataset Rating**
+
+    ```python
+    df_rating = df_rating[df_rating.user_id <= 10000]
+    ```
+
+    Kode di atas digunakan untuk mengambil user_id di bawah 10000. Hal ini agar pada proses rekomendasi tidak terlalu banyak mengambil data. 
+
+    <br>
 
 - **Mengatasi Rating Tidak Valid**
 
@@ -101,12 +132,11 @@ Berikut ini adalah beberapa tahap yang dilakukan sebagai berikut:
 
     ```python
     df_rating.isnull().sum()
-    df_rating.dropna(inplace=True)
     ```
 
-    Pada kode di atas digunakan untuk menghapus nilai null pada dataset Rating.
+    Pada kode ini, tidak dilakukan penghapusan karena nilai null didapatkan dari kode `df_rating['rating'] = df_rating['rating'].replace(-1, pd.NA)`. Tidak dihapus karena nilai null berarti pengguna yang tidak menilai tetapi menonton anime tersebut.
 
-    Hal ini perlu dilakukan untuk menjaga kualitas data. Data kosong dapat menyebabkan model belajar informasi yang salah atau tidak lengkap. 
+    Hal ini perlu dilakukan untuk menjaga kualitas data pada dataset anime. Data kosong dapat menyebabkan model belajar informasi yang salah atau tidak lengkap. Namun pada kondisi dataset rating, penghapusan data tidak perlu karena untuk menjaga nilai yang akan dibutuhkan pada modeling.
     
     <br>
 
@@ -119,208 +149,156 @@ Berikut ini adalah beberapa tahap yang dilakukan sebagai berikut:
 
     Kode di atas digunakan untuk menghapus nilai duplikat pada dataset anime dan rating. Hal ini untuk mencegah data yang sama.
 
-## Modeling
-
-**1. Content Based Filtering**
-
-- Ekstraksi Fitur (Genre) menggunakan Count Vectorizer
-
-    ```python
-    vectorizer = CountVectorizer(tokenizer=lambda x: x.split(', '))
-    genre_matrix = vectorizer.fit_transform(df_anime['genre']).toarray()
-    ```
-
-    Fungsi `tokenizer=lambda x: x.split(', ')` digunakan untuk memisahkan genre yang dipisahkan koma menjadi token individual.
-
     <br>
 
-- Cosine Similarity (Mengukur Kemiripan Anime)
+- **Ekstraksi Fitur Genre dengan CountVectorizer**
 
     ```python
-    anime_similarity = cosine_similarity(genre_matrix)
+    vec = TfidfVectorizer(stop_words='english', tokenizer=lambda x: x.split(', '))
+    genre_matrix = vec.fit_transform(df_anime["genre"])
     ```
 
-    Fungsi cosine_similarity dari sklearn.metrics.pairwise digunakan untuk menghitung tingkat kemiripan antara setiap pasangan anime berdasarkan genre mereka.
+    Kode di atas digunakan untuk mengubah data genre pada setiap anime menjadi bentuk numerik dalam bentuk matriks TF-IDF. Proses ini dikenal sebagai ekstraksi fitur, yang penting dalam sistem rekomendasi berbasis konten.
+
+    - **TfidfVectorizer** (Term Frequency-Inverse Document Frequency) digunakan untuk memberi bobot pada genre berdasarkan frekuensinya dalam suatu anime dan kelangkaannya di seluruh dataset. Genre yang sering muncul dalam suatu anime tetapi jarang muncul di anime lain akan mendapatkan bobot lebih tinggi.
+    - **`Tokenizer lambda x: x.split(', ')`** digunakan untuk memisahkan genre berdasarkan koma, sehingga setiap genre seperti "Action", "Fantasy", dan "Comedy" diperlakukan sebagai fitur terpisah.
+
+    Hasil dari proses ini adalah genre_matrix, yaitu representasi vektor dari tiap anime berdasarkan genre-nya, yang akan digunakan untuk menghitung kemiripan antar anime.
+
+    <br> 
+
+## Modeling
+
+**Content Based Filtering**
+
+- Menghitung Cosine Similarity
+
+    Setelah mendapatkan representasi vektor untuk setiap anime, langkah berikutnya adalah menghitung tingkat kemiripan antar anime menggunakan cosine similarity.
+
+    ```python
+    anime_similarity = cosine_similarity(genre_matrix, genre_matrix)
+    ```
+
+    `anime_similarity[i][j]` menyatakan tingkat kesamaan antara anime ke-i dan anime ke-j. Nilai berkisar antara 0 (sangat berbeda) hingga 1 (identik dari sisi genre).
 
     <br>
 
 - Fungsi Rekomendasi Anime Berdasarkan Genre
 
-    ```python
-    def recommend(anime_title):
-        if anime_title not in df_anime['name'].values:
-            print("Anime tidak ditemukan!")
-            return
-
-        index = df_anime[df_anime['name'] == anime_title].index[0]
-        distances = sorted(list(enumerate(anime_similarity[index])), reverse=True, key=lambda x: x[1])
-
-        print(f"Rekomendasi anime mirip dengan '{anime_title}':")
-        for i in distances[1:6]:
-            title = df_anime.iloc[i[0]]['name']
-            genre = df_anime.iloc[i[0]]['genre']
-            print(f"- {title} — Genre: {genre}")
-    ```
-
-    Fungsi Rekomendasi Anime Berdasarkan Genre bertujuan untuk memberikan saran anime lain yang memiliki genre mirip dengan anime yang dipilih oleh pengguna. 
-
-**2. Collaborative Filtering**
-
-- User-Based Collaborative Filtering
+    Dengan matriks kemiripan (`anime_similarity`), fungsi berikut digunakan untuk mengembalikan daftar anime yang paling mirip dengan judul tertentu:
 
     ```python
-    def user_based_recommendations(user_id, user_item_matrix, user_similarity, n=5):
-        user_scores = user_similarity[user_id - 1]
-
-        similar_users = sorted(enumerate(user_scores), key=lambda x: x[1], reverse=True)
-
-        recommended_anime = []
-
-        for user, score in similar_users[1:]:
-            rated_anime = user_item_matrix.loc[user_item_matrix.index[user - 1]]
-            positively_rated_anime = rated_anime[rated_anime >= 6].index
-
-            target_user_rated_anime = user_item_matrix.loc[user_id].dropna().index
-            recommended_anime.extend(set(positively_rated_anime) - set(target_user_rated_anime))
-
-            if len(recommended_anime) >= n:
-                break
-
-        return recommended_anime[:n]
+    def recommend(title, cosine_sim=anime_similarity):
+        idx = df_anime[df_anime['name'] == title].index[0]
+        sim_scores = list(enumerate(cosine_sim[idx]))
+        sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)[1:6]
+        anime_indices = [i[0] for i in sim_scores]
+        return df_anime['name'].iloc[anime_indices]
     ```
 
-    Pendekatan user-based collaborative filtering memberikan rekomendasi anime dengan cara membandingkan kesamaan pola rating antar pengguna. Kode user_item_matrix digunakan untuk membentuk matriks interaksi antara pengguna dan anime, di mana baris mewakili user_id, kolom mewakili anime_id, dan nilai sel menunjukkan rating dari user terhadap anime tersebut. Setelah itu, cosine_similarity menghitung kemiripan antar pengguna berdasarkan matriks ini. Fungsi user_based_recommendations() bekerja dengan mencari pengguna-pengguna lain yang memiliki pola rating serupa dengan target user, kemudian mengidentifikasi anime yang telah mereka beri rating tinggi (rating ≥ 6), namun belum ditonton oleh user target. Hasil akhirnya adalah daftar rekomendasi anime yang disukai oleh user lain yang mirip, sehingga cocok bagi pengguna baru atau pengguna dengan aktivitas rating yang cukup luas.
-
-    <br>
-
-- Item-Based Collaborative Filtering
-
-    ```python
-    def item_based_recommendations(user_id, user_item_matrix, item_similarity, anime_id_to_idx, idx_to_anime_id, n=5):
-        positively_rated_anime = user_item_matrix.loc[user_id][user_item_matrix.loc[user_id] >= 6].index
-
-        recommended_anime = set()
-        user_rated_anime = set(user_item_matrix.loc[user_id].dropna().index)
-
-        for anime_id in positively_rated_anime:
-            if anime_id not in anime_id_to_idx:
-                continue
-
-            anime_idx = anime_id_to_idx[anime_id]
-            similar_anime_scores = item_similarity[anime_idx]
-
-            similar_anime_sorted = sorted(enumerate(similar_anime_scores), key=lambda x: x[1], reverse=True)
-
-            for idx, score in similar_anime_sorted[1:]:
-                candidate_anime_id = idx_to_anime_id[idx]
-                if candidate_anime_id not in user_rated_anime:
-                    recommended_anime.add(candidate_anime_id)
-                if len(recommended_anime) >= n:
-                    break
-            if len(recommended_anime) >= n:
-                break
-
-        return list(recommended_anime)[:n]
-    ```
-
-    Berbeda dengan pendekatan sebelumnya, item-based collaborative filtering merekomendasikan anime berdasarkan kemiripan antar anime itu sendiri, bukan antar pengguna. Dalam kode ini, item_similarity adalah hasil dari menghitung cosine similarity terhadap transpos dari user_item_matrix, sehingga memperbandingkan setiap kolom (yaitu anime) satu sama lain. Fungsi item_based_recommendations() akan memeriksa semua anime yang telah diberi rating tinggi oleh pengguna target, lalu mencari anime lain yang mirip dengan anime-anime tersebut berdasarkan kemiripan genre atau pola rating umum. Rekomendasi hanya akan mencakup anime yang belum ditonton oleh user. Pendekatan ini sangat cocok digunakan saat data pengguna sedikit namun data tentang anime dan rating yang dimiliki cukup banyak.
+    Penjelasan fungsi:
+    - Mencari indeks anime berdasarkan judul.
+    - Mengambil skor kemiripan antara anime tersebut dan seluruh anime lain.
+    - Mengurutkan berdasarkan skor tertinggi.
+    - Mengembalikan daftar judul anime hasil rekomendasi.
 
     <br>
 
 - Mendapatkan Rekomendasi
+
     ```python
-    user_id = 15
-
-    user_recommendations = user_based_recommendations(user_id, user_item_matrix, user_similarity, n=5)
-
-    item_recommendations = item_based_recommendations(user_id, user_item_matrix, item_similarity, anime_id_to_idx, idx_to_anime_id, n=5)
-
-    print(f"User-Based Recommendations for User {user_id}:")
-    for anime_id in user_recommendations:
-        anime_name = df_anime.loc[df_anime['anime_id'] == anime_id, 'name'].values[0]
-        print(f"- {anime_name}")
-
-    print(f"\nItem-Based Recommendations for User {user_id}:")
-    for anime_id in item_recommendations:
-        anime_name = df_anime.loc[df_anime['anime_id'] == anime_id, 'name'].values[0]
-        print(f"- {anime_name}")
+    recommend("Naruto")
     ```
 
-    Bagian ini membandingkan hasil rekomendasi dari dua pendekatan berbeda — user-based dan item-based — untuk satu pengguna tertentu, dalam hal ini user_id = 15. Sistem akan mencetak hasil rekomendasi dari kedua metode, dan menyebutkan nama anime yang direkomendasikan. Perbandingan ini berguna untuk mengevaluasi efektivitas masing-masing pendekatan: apakah rekomendasi dari pengguna lain lebih relevan (user-based) ataukah rekomendasi dari anime yang mirip lebih sesuai dengan selera pengguna (item-based). Hasil dari proses ini memberikan wawasan tentang perilaku pengguna dan preferensi konten secara lebih mendalam.
-
-## Evaluation
-
-### Content Based Filtering
-
-![visualisasi-metrik](./assets/visualisasi-metrik-content-based-filtering.png)
-
-Visualisasi ini menunjukkan representasi genre dari 10 anime teratas dalam bentuk one-hot encoding (1 = memiliki genre tersebut, 0 = tidak). Dari heatmap tersebut terlihat bahwa:
-  - Cowboy Bebop, Trigun, dan Cowboy Bebop: Tengoku no Tobira memiliki genre yang sama atau mirip seperti Action dan Sci-Fi. Hal ini sejalan dengan hasil heatmap similarity sebelumnya, yang menunjukkan bahwa mereka memang mirip secara item-based collaborative filtering.
-  - Genre Sports muncul di anime seperti Hungry Heart: Wild Striker, Eyeshield 21, dan Initial D Fourth Stage, yang memperjelas alasan mereka saling memiliki kemiripan kecil terhadap anime bergenre action seperti Cowboy Bebop.
-  - Perbedaan genre yang signifikan menjelaskan mengapa beberapa anime tidak menunjukkan kemiripan tinggi satu sama lain dalam heatmap item similarity.
-
-![visualisasi-metrik](./assets/visualisasi-metrik-collaborative-filtering-1.png)
-
-Pada kode kedua sebagian besar pengguna memiliki kemiripan yang rendah satu sama lain (nilai mendekati 0), menunjukkan bahwa preferensi mereka terhadap anime cukup beragam. Namun, terdapat beberapa pasangan pengguna dengan kemiripan yang relatif lebih tinggi (misalnya, user 1 dan user 10 = 0.28, user 3 dan user 5 = 0.2, user 5 dan user 7 = 0.24). Ini menunjukkan potensi untuk memberikan rekomendasi berbasis preferensi pengguna lain dengan tingkat kesamaan tertentu.
-
-![visualisasi-metrik](./assets/visualisasi-metrik-collaborative-filtering-2.png)
-
-Beberapa anime menunjukkan tingkat kemiripan tinggi berdasarkan pola rating pengguna, seperti:
-  - Cowboy Bebop dan Cowboy Bebop: Tengoku no Tobira (similarity 0.62)
-  - Cowboy Bebop dan Trigun (0.53)
-  
-Ini menunjukkan bahwa pengguna yang menyukai satu anime kemungkinan besar juga akan menyukai anime yang memiliki nilai kemiripan tinggi dengannya. Heatmap ini membuktikan bahwa pendekatan Collaborative Filtering berbasis item berhasil mengidentifikasi item-item (anime) yang mirip berdasarkan preferensi kolektif pengguna, sehingga mendukung pencapaian goal kedua.
-
----
-
-## Formula Metrik: Cosine Similarity
-
-Pada dasarnya, **Cosine Similarity** adalah ukuran kemiripan antara dua vektor non-nol dalam ruang produk skalar. Ini mengukur kosinus dari sudut antara dua vektor. Semakin kecil sudutnya, semakin tinggi nilai kosinusnya, dan semakin tinggi pula kemiripan antara kedua vektor tersebut.
-
-### Formula Matematika
-
-Untuk dua vektor $A$ dan $B$, rumus Cosine Similarity didefinisikan sebagai:
-
-$$\text{similarity} = \cos(\theta) = \frac{A \cdot B}{||A|| \cdot ||B||} = \frac{\sum_{i=1}^{n} A_i B_i}{\sqrt{\sum_{i=1}^{n} A_i^2} \sqrt{\sum_{i=1}^{n} B_i^2}}$$
-
-Di mana:
-* $A$ dan $B$ adalah vektor yang sedang dibandingkan (misalnya, vektor genre dari dua anime, atau vektor rating dari dua pengguna).
-* $A_i$ dan $B_i$ adalah komponen ke-$i$ dari vektor $A$ dan $B$.
-* $A \cdot B$ adalah **dot product** (hasil kali titik) dari vektor $A$ dan $B$. Ini dihitung dengan mengalikan setiap komponen yang sesuai dari kedua vektor dan menjumlahkan hasilnya.
-* $||A||$ dan $||B||$ adalah **magnitudo (panjang)** dari vektor $A$ dan $B$. Ini dihitung sebagai akar kuadrat dari jumlah kuadrat setiap komponen vektor.
-
-### Cara Kerja
-
-Metrik ini digunakan untuk mengukur kemiripan dalam dua skenario utama yang divisualisasikan:
-
----
-
-### 1. Item-Based Content-Based Learning dan Collaborative Filtering (Visualisasi Matriks Genre dan Item Similarity)
-
-* **Dalam `Genre Presence Matrix` (Content-Based Filtering):**
-    * Setiap baris representasi genre (setelah *one-hot encoding*) dari sebuah anime dianggap sebagai sebuah vektor.
-    * Misalnya, `Cowboy Bebop` mungkin memiliki vektor `[1, 1, 0, 0, ...]` untuk Action, Sci-Fi, Sports, dll.
-    * Ketika secara implisit (melalui visualisasi dan penjelasan) mengatakan bahwa `Cowboy Bebop` dan `Trigun` mirip berdasarkan genre Action dan Sci-Fi, ini karena vektor genre mereka akan memiliki banyak angka `1` di posisi genre yang sama. Cosine Similarity akan menghasilkan nilai tinggi karena dot product mereka akan besar (banyak genre yang sama) dan panjang vektor mereka juga relevan.
-    * **Formula Cosine Similarity** digunakan di balik layar (atau bisa digunakan secara eksplisit) untuk menghitung seberapa mirip dua anime berdasarkan profil genre mereka. Semakin banyak genre yang sama (nilai 1 di posisi yang sama dalam vektor genre), semakin tinggi kemiripan kosinusnya.
-
-* **Dalam `Anime (Item) Similarity Heatmap` (Collaborative Filtering):**
-    * Di sini, setiap kolom (setelah transpose, atau perhatikan bahwa kita membandingkan item) dari `user_item_matrix` (setelah `fillna(0)`) dianggap sebagai vektor. Vektor ini merepresentasikan **profil rating** untuk setiap anime di antara semua pengguna.
-    * Misalnya, vektor Anime X adalah `[rating_user1, rating_user2, rating_user3, ...]`.
-    * Ketika menghitung `item_similarity` (yang hasilkan dari `user_item_matrix` yang di-transpose atau dari metode langsung seperti `cosine_similarity(user_item_matrix.T)`), dibandingkan dua anime (vektor).
-    * **Cosine Similarity** akan memberikan nilai tinggi jika dua anime cenderung dinilai tinggi oleh pengguna yang sama, atau dinilai rendah oleh pengguna yang sama, dan memiliki pola rating yang serupa di antara pengguna lain. Contoh: `Cowboy Bebop` dan `Cowboy Bebop: Tengoku no Tobira` memiliki nilai 0.62 karena pengguna yang memberikan rating tinggi pada satu anime cenderung memberikan rating tinggi pada anime lainnya, atau mereka cenderung tidak memberikan rating pada keduanya (karena `0` diinterpretasikan sebagai "tidak ada rating").
-
----
-
-### 2. User-Based Collaborative Filtering (Visualisasi User Similarity Heatmap)
-
-* Di sini, setiap baris dari `user_item_matrix` (setelah `fillna(0)`) dianggap sebagai sebuah vektor. Vektor ini merepresentasikan **profil rating** yang diberikan oleh setiap pengguna untuk semua anime.
-* Misalnya, vektor User 1 adalah `[rating_anime1, rating_anime2, rating_anime3, ...]`.
-* Ketika menghitung `user_similarity`, dibandingkan dua pengguna (vektor).
-* **Cosine Similarity** akan memberikan nilai tinggi jika dua pengguna cenderung memberikan rating yang sama pada anime yang sama. Misalnya, jika User A dan User B sama-sama memberikan rating 5 untuk Anime X dan Anime Y, serta tidak me-rating Anime Z, maka vektor rating mereka akan sangat mirip, menghasilkan Cosine Similarity yang tinggi.
-* Komentar bahwa "sebagian besar pengguna memiliki kemiripan yang rendah satu sama lain (nilai mendekati 0)" adalah umum dan sejalan dengan sifat `user_item_matrix` yang sangat jarang (sparsity) yang kita bahas sebelumnya. Ini berarti profil rating mereka (vektor) kebanyakan terdiri dari `0`s dan hanya sedikit interaksi yang tumpang tindih. Namun, ketika ada tumpang tindih dan pola ratingnya mirip, nilai kesamaan akan meningkat.
+    Setelah membuat fungsi rekomendasi anime, pada tahap ini adalah tahap implementasi. Output dari rekomendasi anime dari 'Naruto' sebagai berikut. 
+    
+    | ID   | Name                                                 |
+    |------|------------------------------------------------------|
+    | 615  | Naruto: Shippuuden                                   |
+    | 841  | Naruto                                               |
+    | 1103 | Boruto: Naruto the Movie - Naruto ga Hokage ni...    |
+    | 1343 | Naruto x UT                                          |
+    | 1472 | Naruto: Shippuuden Movie 4 - The Lost Tower          |
 
 ---
 
 ### Ringkasan
 
-Singkatnya, **Cosine Similarity** adalah metrik yang sangat baik untuk mengukur kemiripan dalam konteks sistem rekomendasi karena ia hanya fokus pada **arah** vektor (pola) dan tidak terlalu terpengaruh oleh **magnitudo** (misalnya, perbedaan skala rating antar pengguna). Ini menjadikannya pilihan populer untuk membandingkan profil genre, profil rating pengguna, atau profil rating item.
+Cosine Similarity merupakan metrik yang efektif dalam sistem rekomendasi, terutama untuk mengukur kemiripan antar item seperti anime berdasarkan genre. Metrik ini bekerja dengan membandingkan **arah vektor** alih-alih **magnitudo** (besarnya nilai), sehingga lebih fokus pada pola kesamaan daripada perbedaan skala atau intensitas.
+
+Keunggulan utama Cosine Similarity dalam konteks ini:
+
+* **Tidak sensitif terhadap skala**: Perbedaan besar nilai antar item tidak memengaruhi hasil kemiripan secara signifikan.
+* **Akurat dalam mengenali pola**: Sangat cocok untuk membandingkan fitur-fitur berbasis teks seperti genre, sinopsis, atau tag.
+* **Sederhana dan efisien**: Mudah diimplementasikan dan memiliki performa yang baik pada dataset menengah hingga besar.
+
+## Evaluation
+
+Berikut adalah bagian **Evaluation** yang dirapikan dan disusun sesuai kaidah evaluasi sistem rekomendasi berbasis konten:
+
+---
+
+## Evaluation
+
+### Metrik Evaluasi yang Digunakan: Precision\@K
+
+Untuk mengevaluasi kinerja model rekomendasi berbasis konten, digunakan metrik **Precision\@K**. Metrik ini mengukur proporsi item yang relevan (dalam hal ini, memiliki kemiripan genre) di antara *K* hasil rekomendasi teratas yang diberikan oleh sistem.
+
+### Rumus Precision\@K
+
+$$
+\text{Precision@K} = \frac{\text{Jumlah item yang relevan pada K teratas}}{K}
+$$
+
+Item dikatakan **relevan** jika memiliki setidaknya satu genre yang sama dengan anime referensi.
+
+### Implementasi
+
+```python
+def precision_at_k(title, k=5):
+    try:
+        recommended = recommend(title, anime_similarity).tolist()
+        original_genres = set(df_anime[df_anime['name'] == title]['genre'].values[0].split(', '))
+
+        relevant = 0
+        for rec in recommended[:k]:
+            rec_genres = set(df_anime[df_anime['name'] == rec]['genre'].values[0].split(', '))
+            if len(original_genres.intersection(rec_genres)) > 0:
+                relevant += 1
+
+        return relevant / k
+    except IndexError:
+        return f"Anime dengan nama '{title}' tidak ditemukan."
+```
+
+### Hasil Evaluasi
+
+Contoh evaluasi dengan judul **"Naruto"**:
+
+```python
+precision_at_k("Naruto")
+```
+
+Output:
+
+```
+1.0
+```
+
+### Interpretasi Hasil
+
+Nilai **Precision\@5 = 1.0** menandakan bahwa kelima anime yang direkomendasikan memiliki setidaknya satu genre yang sama dengan *Naruto*. Ini menunjukkan bahwa sistem berhasil memberikan rekomendasi yang **relevan secara konten**, khususnya dari sisi genre.
+
+### Kelebihan & Keterbatasan Evaluasi
+
+**Kelebihan**:
+
+* Sesuai dengan pendekatan content-based filtering yang berbasis genre.
+* Mudah dihitung dan diinterpretasikan.
+* Memberikan indikasi awal bahwa sistem mampu menangkap kemiripan tematik.
+
+**Keterbatasan**:
+
+* Tidak mempertimbangkan aspek lain seperti kualitas cerita, rating, atau popularitas.
+* Hanya fokus pada genre yang bisa bersifat terlalu umum.
+* Tidak menangkap preferensi pengguna secara personal jika tersedia.
