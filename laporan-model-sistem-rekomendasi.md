@@ -55,7 +55,7 @@ Kemudian pada gambar di atas, diketahui kondisi awal dari dataset rating tidak t
 
 Setelah dilakukan pengambilan `user_id` di bawah 10000, baru diketahui bahwa tidak ada nilai null pada dataset rating.
 
-Pada **dataset anime terdapat 12293 baris dan 7 kolom**, sedangkan **dataset rating terdapat 7813736 baris (sebelum dikurangi) dan 3 kolom**.
+Pada **dataset anime terdapat 12294 baris dan 7 kolom**, sedangkan **dataset rating terdapat 7813737 baris (sebelum dikurangi) dan 3 kolom**.
 
 ---
 
@@ -147,7 +147,9 @@ Berikut ini adalah beberapa tahap yang dilakukan sebagai berikut:
     df_rating.duplicated().sum()
     ```
 
-    Kode di atas digunakan untuk menghapus nilai duplikat pada dataset anime dan rating. Hal ini untuk mencegah data yang sama.
+    ![cek-duplikat-anime-rating.png](./assets/cek-duplikat-anime-rating.png)
+
+    Kode di atas digunakan untuk melihat nilai duplikat pada dataset anime dan rating. Pada gambar, tidak terdapat data duplikat, oleh sebab itu tidak dilakukan penghapusan data duplikat.
 
     <br>
 
